@@ -8,6 +8,7 @@ import geometry_msgs.msg
 from math import pi
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
+from moveit_msgs.msg import Grasp
 
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('move_group_python_interface_tutorial',
@@ -17,18 +18,19 @@ robot = moveit_commander.RobotCommander()
 scene = moveit_commander.PlanningSceneInterface()
 
 group_name = "panda_arm"
-group = moveit_commander.MoveGroupCommander(group_name)
+group_arm = moveit_commander.MoveGroupCommander(group_name)
+group_hand = moveit_commander.MoveGroupCommander("hand")
 
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path',
                                                moveit_msgs.msg.DisplayTrajectory,
                                                queue_size=20)
 
 # We can get the name of the reference frame for this robot:
-planning_frame = group.get_planning_frame()
+planning_frame = group_arm.get_planning_frame()
 print("============ Reference frame: %s" % planning_frame)
 
 # We can also print the name of the end-effector link for this group:
-eef_link = group.get_end_effector_link()
+eef_link = group_arm.get_end_effector_link()
 print("============ End effector: %s" % eef_link)
 
 # We can get a list of all the groups in the robot:
@@ -44,7 +46,7 @@ print("")
 waypoints = []
 scale = 1.0
 
-wpose = group.get_current_pose().pose
+wpose = group_arm.get_current_pose().pose
 
 # wpose.position.z -= scale * 0.1  # First move up (z)
 p = wpose.position
@@ -84,9 +86,14 @@ waypoints.append(copy.deepcopy(wpose))
 # We want the Cartesian path to be interpolated at a resolution of 1 cm
 # which is why we will specify 0.01 as the eef_step in Cartesian
 # translation.  We will disable the jump threshold by setting it to 0.0 disabling:
-(plan, fraction) = group.compute_cartesian_path(
+(plan, fraction) = group_arm.compute_cartesian_path(
                                    waypoints,   # waypoints to follow
                                    0.01,        # eef_step
                                    0.0)         # jump_threshold
 
-group.execute(plan, wait=True)
+group_arm.execute(plan, wait=True)
+
+group_hand.set_named_target('open')
+group_hand.go()
+group_hand.set_named_target('close')
+group_hand.go()
